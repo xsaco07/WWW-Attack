@@ -1,77 +1,71 @@
 #include "../lib/utils.h"
 
 #define MAX_QUEUE_LENGTH 1
-#define BUFFER_SIZE 1024
+#define MB 1000000
+#define KB 1000
+#define REQUEST_BUFFER_SIZE 1*KB
+#define FILE_BUFFER_SIZE 10*MB
 
+void foo(){return;}
 
 void handle_client(int client_socket_fd){
-    // FOO HTTP RESPONSE
-    // char request[2048];
-    // strcpy(request,"HTTP/1.1 200 OK\nContent-Type: text/html\nContent-Length: 58\n\n<html><head></head><body><h1>HELLO WORLD</h1</body></html>");
-    // strcpy(t,"<html><head></head><body><h1>HELLO WORLD</h1</body></html>");
-    // send(client_socket_fd, t, sizeof(t),0);
 
+    // Read the filename
+    char request_buffer[REQUEST_BUFFER_SIZE];
+    return;
+    // char request_buffer[1024];
 
-    // char r[1024];
-    // recv(client_socket_fd,r, sizeof(r), 0);
-    // printf("client entered with:%s\n",r);
-
-    // http_request req;
-    // parse_http_request(r, &req);
-    // printf("method:%d\n", req.method);
-    // printf("uri:%s\n", req.uri);
-    // printf("protocol:%s\n", req.protocol);
-
-    // return;
-
-
-	// Read the filename
-	char buffer[BUFFER_SIZE];
-	read( client_socket_fd, buffer, BUFFER_SIZE );
+    printf("reading request...");
+    read( client_socket_fd, request_buffer, sizeof(request_buffer));
+    printf("done\n");
 	http_request req;
-    parse_http_request(buffer, &req);
-
+    
+    printf("parsing req...");
+    parse_http_request(request_buffer, &req);
+    printf("done\n");
 
     char filename[20];
-    int offset=sprintf(filename,"www/");
-    sprintf(filename+offset, req.uri+1);
 
+    printf("building filename...");
+    build_filename("www",req.uri, filename);
+    printf("done\n");
+    
     printf("file to open %s\n",filename);
-	// Open the file 
+    printf("KKK\n");
+    
+    // Open the file 
     FILE *file = fopen(filename, "r");
 
-    if(file){
-        char response[2048];
-        int offs = sprintf(response, "HTTP/1.1 200 OK\n");
-        offs += sprintf(response+offs, "\n");
-    	// Write the file to the socket
-        char block[1024];
-        int bytes_read;
-        while ((bytes_read = fread(block, 1, sizeof(block), file)))
-            offs += sprintf(response+offs,"%s", block);
+    http_response response;
 
-        send(client_socket_fd, response, offs, 0);
-        printf("Response sent:%s \n",response);
+    if(file){
+        char file_buffer[FILE_BUFFER_SIZE];
+        
+        printf("copying file...");
+        int file_size = copy_file(file, file_buffer);
+        printf("done\n");
+
+        response.content_length = file_size;
+        response.body = file_buffer;
+        response.status_code = 200;
+        
         // Close the requested file 
         fclose(file);
     }
     else{
         printf("File requested not found\n");
+        response.status_code = 404;
     }
+    printf("sending response...");
+    send_response(client_socket_fd, response);
+    printf("done\n");
 }
 
 int main() {
 
-    // http_request req;
-    // parse_http_request("GET /hola/mundo.res HTTP/1.1 \n", &req);
-    // printf("method:%d\n", req.method);
-    // printf("uri:%s\n", req.uri);
-    // printf("protocol:%s\n", req.protocol);
-    // return 0;
-
-
-
     disable_buffers();
+
+    fill_phrases();
 
 	int socket_fd = create_socket();
 
@@ -82,7 +76,7 @@ int main() {
     int served_clients = 0, fails=0;
 
     struct sockaddr_in client_address;
-    while(served_clients <= 3){
+    while(served_clients <= 20){
         printf("Waiting clients at %d | served: %d received: %d\n",PORT,served_clients, fails);
     	int client_socket_fd = accept(socket_fd, 
     		(struct sockaddr *) &client_address, 
@@ -94,7 +88,10 @@ int main() {
             fails++;
     	}
     	else{
-    		handle_client(client_socket_fd);
+            printf("enter handling\n");
+            // handle_client(client_socket_fd);
+            handle_client(2);
+            printf("end handling\n");
             close(client_socket_fd);
             served_clients++;
     	}

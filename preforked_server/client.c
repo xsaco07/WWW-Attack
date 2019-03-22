@@ -5,16 +5,19 @@ int main(){
 	int socket_fd = create_socket();
 	connect_to_server(socket_fd, PORT);
 
-	char filename[] = {"GET /hola.html HTTP/1.1"};
+	char filename[] = {"GET /a.html HTTP/1.1"};
 
 	printf("request: %s\n", filename);
 	send(socket_fd, filename, sizeof(filename), 0);
 	printf("sent \n");
 	
+	FILE *down = fopen("down.txt","w");
 	char buff[1024];
-	bzero(buff, sizeof(buff));
 	recv(socket_fd, buff, sizeof(buff), 0);
-	printf("%s",buff);
+	while(recv(socket_fd, buff, sizeof(buff), 0))
+		fprintf(down,"%s",buff);
+	printf("end receiving\n");
+	fclose(down);
 	close(socket_fd);
 
 }

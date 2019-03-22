@@ -98,3 +98,44 @@ void parse_http_request(char *string, http_request *request){
 void parse_http_response(char *string, http_response *response){
 	return;
 }
+
+void build_filename(char *folder, char *uri, char *dest){
+
+    int offset = sprintf(dest,"%s/",folder);
+    offset += sprintf(dest+offset,"%s",uri+1);
+
+}
+
+void send_response(int socket_fd, http_response response){
+    char buffer[RESPONSE_BUFFER_SIZE];
+    char *buffer_cursor = buffer;
+    char *protocol = "HTTP/1.1";
+    buffer_cursor += sprintf(buffer_cursor,"%s %d %s\n",
+        protocol,
+        response.status_code,
+        phrases[response.status_code]);
+        // "OK");
+
+    if(response.status_code == 200){
+        buffer_cursor += sprintf(buffer_cursor,"Content-length: %d\n",response.content_length);
+        buffer_cursor += sprintf(buffer_cursor,"\n");
+        buffer_cursor += sprintf(buffer_cursor,"%s", response.body);
+    }
+
+    send(socket_fd, buffer, sizeof(buffer),0);
+    printf("END\n%s",buffer);
+    
+}
+
+int copy_file(FILE *file, char *buffer){
+    int bytes_count = 0;
+    int bytes_read;
+    while ((bytes_read = fread(buffer, 1, 1024, file)))
+        bytes_count += bytes_read;
+    return bytes_count;
+}
+
+void fill_phrases(){
+    phrases[404] = "Not Found";
+    phrases[200] = "OK";
+}

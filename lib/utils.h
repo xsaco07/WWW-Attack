@@ -9,13 +9,17 @@
 #include <stdlib.h> 
 
 #define ERROR -1
-#define PORT 8004
+#define PORT 9007
 #define GET 1
 #define POST 2
 #define DELETE 3
 #define PUT 4
 #define EQUALS 0
+#define MB 1000000
+#define RESPONSE_BUFFER_SIZE 11*MB
 
+
+char *phrases[600];
 
 typedef struct http_request{
 	int method;
@@ -48,5 +52,13 @@ void parse_http_response(char *string, http_response *response);
 void parse_http_request(char *string, http_request *request);
 
 void print_error_status();
+
+void build_filename(char *folder, char *uri, char *dest);
+
+void send_response(int socket_fd, http_response response);
+
+int copy_file(FILE *file, char *buffer);
+
+void fill_phrases();
 
 #endif

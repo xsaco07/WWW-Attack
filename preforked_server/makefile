@@ -5,9 +5,9 @@ client: build_client
 	clear ; ./client
 	 
 build_client:
-	gcc -o client ../lib/utils.c client.c
+	gcc -g -o client ../lib/utils.c client.c
 
 build_server:
-	gcc -o server ../lib/utils.c server.c
+	gcc -g -o server ../lib/utils.c server.c
 
 all: server 
