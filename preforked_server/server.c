@@ -6,7 +6,44 @@
 #define REQUEST_BUFFER_SIZE 1*KB
 #define FILE_BUFFER_SIZE 10*MB
 
-void foo(){return;}
+void handle_client(int client_socket, char *path){
+
+    // Read the filename
+    char request_buffer[1024];
+
+    read( client_socket, request_buffer, sizeof(request_buffer));
+    http_request req;
+    
+    parse_http_request(request_buffer, &req);
+
+    char filename[20];
+
+    build_filename(path,req.uri, filename);
+
+    FILE *file = fopen(filename, "r");
+
+    http_response response;
+    char file_buffer[15*1024];
+    if(file){
+        int file_size = copy_file(file, file_buffer);
+        response.content_length = file_size;
+        response.body = file_buffer;
+        response.status_code = 200;
+    }
+    else{
+        printf("File not found\n");
+        response.status_code = 404;
+    }
+    printf("sending response..."); 
+    send_response(client_socket, response);
+    printf("done\n");
+
+    if(file)
+        fclose(file);
+
+    printf("done\n");
+}
+
 
 
 int main(int argc, char *argv[]) {
