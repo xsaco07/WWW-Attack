@@ -107,24 +107,20 @@ void build_filename(char *folder, char *uri, char *dest){
 }
 
 void send_response(int socket_fd, http_response response){
-    char buffer[RESPONSE_BUFFER_SIZE];
-    char *buffer_cursor = buffer;
+    char buffer[10*1024];
     char *protocol = "HTTP/1.1";
-    buffer_cursor += sprintf(buffer_cursor,"%s %d %s\n",
-        protocol,
-        response.status_code,
-        phrases[response.status_code]);
-        // "OK");
+    int offset = sprintf(buffer,"%s %d %s\n",protocol,response.status_code,phrases[response.status_code]);
 
     if(response.status_code == 200){
-        buffer_cursor += sprintf(buffer_cursor,"Content-length: %d\n",response.content_length);
-        buffer_cursor += sprintf(buffer_cursor,"\n");
-        buffer_cursor += sprintf(buffer_cursor,"%s", response.body);
+        offset += sprintf(buffer+offset,"Content-length: %d\n",response.content_length);
+        offset += sprintf(buffer+offset,"\n");
+        //Write exactly the size of the body 
+        strncpy(buffer+offset, response.body, response.content_length);
+        offset += response.content_length;
     }
 
-    send(socket_fd, buffer, sizeof(buffer),0);
-    printf("END\n%s",buffer);
-    
+    int s = send(socket_fd, buffer, offset,0);  
+    // printf("AAAAA %d sent content: %s\n",s,buffer);
 }
 
 int copy_file(FILE *file, char *buffer){
@@ -138,4 +134,64 @@ int copy_file(FILE *file, char *buffer){
 void fill_phrases(){
     phrases[404] = "Not Found";
     phrases[200] = "OK";
+}
+
+
+void handle_client(int client_socket, char *path){
+
+    // Read the filename
+    char request_buffer[1024];
+
+    read( client_socket, request_buffer, sizeof(request_buffer));
+    http_request req;
+    
+    parse_http_request(request_buffer, &req);
+
+    char filename[20];
+
+    build_filename(path,req.uri, filename);
+
+    FILE *file = fopen(filename, "r");
+
+    http_response response;
+    char file_buffer[10*1024];
+    if(file){
+        int file_size = copy_file(file, file_buffer);
+        response.content_length = file_size;
+        response.body = file_buffer;
+        response.status_code = 200;
+    }
+    else{
+        response.status_code = 404;
+    }
+    printf("sending response..."); 
+    send_response(client_socket, response);
+    printf("done\n");
+
+    if(file)
+        fclose(file);
+
+    printf("done\n");
+}
+
+
+void parse_arguments(int argc, char *argv[], arguments *arguments){
+    if(argc != 7){
+        exit_on_error("Invalid amount of arguments");
+    }
+
+    char current_option_char; 
+    while((current_option_char = getopt(argc, argv, "n:w:p:")) != -1){
+        switch(current_option_char){
+            case 'n':
+                sscanf(optarg,"%d",&arguments->processes);
+                break;
+            case 'w':
+                strcpy(arguments->path,optarg);
+                break;
+            case 'p':
+                sscanf(optarg,"%d",&arguments->port);
+                break;
+        }
+    }
 }

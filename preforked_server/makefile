@@ -1,5 +1,5 @@
 server: build_server
-	clear ; ./server
+	clear ; ./server -n 4 -w www/ -p 4800
 
 client: build_client
 	clear ; ./client

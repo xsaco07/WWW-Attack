@@ -9,7 +9,7 @@
 #include <stdlib.h> 
 
 #define ERROR -1
-#define PORT 9007
+
 #define GET 1
 #define POST 2
 #define DELETE 3
@@ -34,6 +34,12 @@ typedef struct http_response{
 	char *body;
 	int content_type;
 } http_response;
+
+typedef struct arguments{
+	char path[100];
+	int port;
+	int processes;
+}arguments;
 
 int create_socket();
 
@@ -60,5 +66,11 @@ void send_response(int socket_fd, http_response response);
 int copy_file(FILE *file, char *buffer);
 
 void fill_phrases();
+
+void handle_client(int client_socket, char *path);
+
+void parse_arguments(int argc, char *argv[], arguments *arguments);
+
+
 
 #endif
