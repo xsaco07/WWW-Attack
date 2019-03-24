@@ -2,7 +2,6 @@
 
 void disable_buffers(){
 	setbuf(stdout,NULL);
-	return;
 }
 
 void exit_on_error(const char *error){
@@ -97,4 +96,65 @@ void parse_http_request(char *string, http_request *request){
 
 void parse_http_response(char *string, http_response *response){
 	return;
+}
+
+void build_filename(char *folder, char *uri, char *dest){
+    // Add the final "/" to the folder name 
+    int offset = sprintf(dest,"%s/",folder);
+    // +1 to skip the starting "/" of the uri
+    offset += sprintf(dest+offset,"%s",uri+1);
+
+}
+
+void send_response(int socket_fd, http_response response){
+    // All the response will be written here
+    char buffer[10*1024];
+    char *protocol = "HTTP/1.1";
+    // This is used to track where to write the next time 
+    int offset = sprintf(buffer,"%s %d %s\n",protocol,response.status_code,phrases[response.status_code]);
+
+    if(response.status_code == 200){
+        offset += sprintf(buffer+offset,"Content-length: %d\n",response.content_length);
+        offset += sprintf(buffer+offset,"\n");
+        //Write exactly the size of the body 
+        memcpy(buffer+offset, response.body, response.content_length);
+        offset += response.content_length;
+    }
+
+    int bytes_sent = send(socket_fd, buffer, offset,0);  
+    printf("%d bytes sent content: %s\n",bytes_sent,buffer);
+}
+
+int copy_file(FILE *file, char *buffer){
+    int bytes_count = 0;
+    int bytes_read=0;
+    while ((bytes_read = fread(buffer+bytes_count, 1, 1024, file)))
+        bytes_count += bytes_read;
+    return bytes_count;
+}
+
+void fill_phrases(){
+    phrases[404] = "Not Found";
+    phrases[200] = "OK";
+}
+
+void parse_arguments(int argc, char *argv[], arguments *arguments){
+    if(argc != 7){
+        exit_on_error("Invalid amount of arguments");
+    }
+
+    char current_option_char; 
+    while((current_option_char = getopt(argc, argv, "n:w:p:")) != -1){
+        switch(current_option_char){
+            case 'n':
+                sscanf(optarg,"%d",&arguments->processes);
+                break;
+            case 'w':
+                strcpy(arguments->path,optarg);
+                break;
+            case 'p':
+                sscanf(optarg,"%d",&arguments->port);
+                break;
+        }
+    }
 }
