@@ -1,18 +1,38 @@
 #include "thread_pool.h"
 #include "../lib/utils.h"
 
-void* handle_conexion();
-void handle_client(int client_socket_fd);
+void handle_conexion();
+void *handle_client();
 _Bool arguments_OK(int argc, char* argv[]);
 void initiate_threads();
 void save_arguments(char* argv[]);
+void answering_client(int client_socket_fd, char buffer[]);
+void show_threads_use();
+
+int NEW_CLIENT_SOCKET_FD = -1;
+int MAIN_SOCKET_ID = -1;
+int MAX_CLIENTS = 20;
+
+pthread_mutex_t available_threads_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t new_client_fd_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t new_client_condition = PTHREAD_COND_INITIALIZER;
+pthread_cond_t available_threads_condition = PTHREAD_COND_INITIALIZER;
 
 int main(int argc, char *argv[]) {
 
+  disable_buffers();
+
   if(arguments_OK(argc, argv)){
     save_arguments(argv);
-    create_thread_pool(NUM_CLIENT_THREADS);
+    create_thread_pool(PROGRAM.NUM_CLIENT_THREADS);
+
+    MAIN_SOCKET_ID = create_socket();
+    bind_socket(MAIN_SOCKET_ID, PROGRAM.ARGUMENT_PORT);
+    start_listening(MAIN_SOCKET_ID, MAX_CLIENTS);
     initiate_threads();
+    handle_conexion();
+    close(MAIN_SOCKET_ID);
   }
   else{
     printf("\nARGUMENTS ARE MISSING OR WRONG\n");
@@ -22,69 +42,127 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-void* handle_conexion(){
+void show_threads_use(){
+  printf("\n<<<<Threads available: %d | Threads in use: %d>>>>\n",
+  PROGRAM.AVAILABLE_THREADS, PROGRAM.NUM_CLIENT_THREADS - PROGRAM.AVAILABLE_THREADS);
+}
 
-  int socket_fd = create_socket();
-  bind_socket(socket_fd, ARGUMENT_PORT);
-  start_listening(socket_fd, NUM_CLIENT_THREADS);
+void handle_conexion(){
 
-  struct sockaddr_in client_address;
-  while (AVAILABLE_THREADS) {
-    printf("\nThreads available: %d | Threads in use: %d\n",
-    AVAILABLE_THREADS, NUM_CLIENT_THREADS - AVAILABLE_THREADS);
+  while (1) {
 
-    int client_socket_fd = accept(socket_fd, (struct sockaddr *) &client_address,
-    (socklen_t*) &client_address);
+    show_threads_use();
+    int client_socket_fd = accept(MAIN_SOCKET_ID, NULL, NULL);
+    show_threads_use();
 
     if(client_socket_fd == ERROR){
-      printf("Error accepting client\n");
+      printf("Error accepting new client\n");
       print_error_status();
     }
     else{
-      AVAILABLE_THREADS--;
-      handle_client(client_socket_fd);
-      close(client_socket_fd);
-      AVAILABLE_THREADS++;
+      printf("\nConexion established\n");
+      // Update the socket fd that the threads are reading from.
+      pthread_mutex_lock(&new_client_fd_mutex);
+      NEW_CLIENT_SOCKET_FD = client_socket_fd;
+      pthread_mutex_unlock(&new_client_fd_mutex);
+
+      printf("\nThe client fd is = %d\n", NEW_CLIENT_SOCKET_FD);
+
+      pthread_cond_broadcast(&new_client_condition); // Unlock all threads locked in this condition
+
+      pthread_mutex_lock(&available_threads_mutex);
+      PROGRAM.AVAILABLE_THREADS--;
+
+      if (PROGRAM.AVAILABLE_THREADS == 0) {
+        pthread_cond_wait(&available_threads_condition, &available_threads_mutex);
+      }
+
+      pthread_mutex_unlock(&available_threads_mutex);
     }
 
   }
-  return NULL;
+  pthread_exit(NULL);
 }
 
-void handle_client(int client_socket_fd){
+void* handle_client(){
 
+  int client_socket_fd;
   char buffer[BUFFER_SIZE];
-	read( client_socket_fd, buffer, BUFFER_SIZE );
-	http_request request;
-  parse_http_request(buffer, &request);
 
-  char filename[100];
-  int offset = sprintf(filename, PATH_ROOT);
-  sprintf(filename+offset, request.uri+1);
+  while (1) {
 
-  printf("\nFile asked: %s\n",filename);
+    // START CRITIC REGION -----------------------------------------------------
+    printf("\nNEW CLIENT STATUS = %d\n", NEW_CLIENT_SOCKET_FD);
+
+    pthread_mutex_lock(&new_client_fd_mutex);
+    while (NEW_CLIENT_SOCKET_FD == -1) {
+      pthread_cond_wait(&new_client_condition, &new_client_fd_mutex);
+    }
+
+    show_threads_use();
+    client_socket_fd = NEW_CLIENT_SOCKET_FD;
+    NEW_CLIENT_SOCKET_FD = -1;
+    pthread_mutex_unlock(&new_client_fd_mutex);
+
+    // END CRITIC REGION -------------------------------------------------------
+
+    printf("\nClient with socket_fd = %d will be attended.\n", client_socket_fd);
+
+    if(client_socket_fd){
+
+      printf("\nReading from client %d\n", client_socket_fd);
+
+      recv(client_socket_fd, buffer, BUFFER_SIZE, 0);
+      answering_client(client_socket_fd, buffer);
+      close(client_socket_fd);
+
+      printf("\nClient %d attended succesfully\n", client_socket_fd);
+      show_threads_use();
+
+      pthread_mutex_lock(&available_threads_mutex);
+      PROGRAM.AVAILABLE_THREADS++;
+      pthread_mutex_unlock(&available_threads_mutex);
+
+      show_threads_use();
+
+      // Unlock the wait condition because there is space for another client
+      pthread_cond_signal(&available_threads_condition);
+    }
+  }
+  pthread_exit(NULL);
+}
+
+void answering_client(int client_socket_fd, char buffer[]){
+
+  http_request req;
+  parse_http_request(buffer, &req);
+
+  char filename[20];
+  build_filename(PROGRAM.PATH_ROOT,req.uri, filename);
+
+  printf("\nFile asked = %s\n", filename);
 
   FILE *file = fopen(filename, "r");
 
+  http_response response;
+  char file_buffer[15*1024];
+
   if(file){
-      char response[2048];
-      int offs = sprintf(response, "HTTP/1.1 200 OK\n");
-      offs += sprintf(response+offs, "\n");
-
-  	  // Write the file to the socket
-      char block[1024];
-      int bytes_read;
-      while ((bytes_read = fread(block, 1, sizeof(block), file)))
-          offs += sprintf(response+offs,"%s", block);
-
-      send(client_socket_fd, response, offs, 0);
-      printf("Response sent: %s \n",response);
-      // Close the requested file
-      fclose(file);
+    int file_size = copy_file(file, file_buffer);
+    response.content_length = file_size;
+    response.body = file_buffer;
+    response.status_code = 200;
   }
   else{
-      printf("File requested not found\n");
+    printf("\nFile not found\n");
+    response.status_code = 404;
   }
+  printf("\nSending response...\n");
+  send_response(client_socket_fd, response);
+  printf("\nDone\n");
+
+  if(file)
+    fclose(file);
 }
 
 _Bool arguments_OK(int argc, char* argv[]){
@@ -92,19 +170,18 @@ _Bool arguments_OK(int argc, char* argv[]){
 }
 
 void initiate_threads(){
-  for (int i = 0; i < NUM_CLIENT_THREADS; i++) {
-    if(pthread_create(&(thread_pool[i]), NULL, handle_conexion, NULL)){
-      printf("Error in creation of the thread #%d\n", i);
+  for (int i = 0; i < PROGRAM.NUM_CLIENT_THREADS; i++) {
+    if(pthread_create(&(thread_pool[i]), NULL, handle_client, NULL)){
+      printf("\nError in creation of the thread #%d\n", i);
       print_error_status();
     }
-    else printf("Thread #%d created succesfully.\n", i);
+    else printf("\nThread #%d created succesfully.\n", i);
   }
 }
 
 void save_arguments(char* argv[]){
-  NUM_CLIENT_THREADS = atoi(argv[2]);
-  ARGUMENT_PORT = atoi(argv[6]);
-  //PATH_ROOT = argv[4];
-  strcpy(PATH_ROOT, argv[4]);
-  AVAILABLE_THREADS = NUM_CLIENT_THREADS;
+  PROGRAM.NUM_CLIENT_THREADS = atoi(argv[2]);
+  PROGRAM.ARGUMENT_PORT = atoi(argv[6]);
+  PROGRAM.AVAILABLE_THREADS = PROGRAM.NUM_CLIENT_THREADS;
+  strcpy(PROGRAM.PATH_ROOT, argv[4]);
 }
