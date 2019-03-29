@@ -119,18 +119,17 @@ void* answering_when_limit_reached(){
 
         char buffer[BUFFER_SIZE];
         recv(client_socket_fd, buffer, BUFFER_SIZE, 0);
-        answering_client(client_socket_fd, buffer, 1);
+        answering_client(client_socket_fd, buffer, TRUE);
         close(client_socket_fd);
       }
     }
   }
 }
 
-void* handle_client(void* limit_reached){
+void* handle_client(){
 
   int client_socket_fd;
   char buffer[BUFFER_SIZE];
-  int limit_flag = *(int*)limit_reached;
 
   while (1) {
 
@@ -156,7 +155,7 @@ void* handle_client(void* limit_reached){
       printf("\nReading from client %d\n", client_socket_fd);
 
       recv(client_socket_fd, buffer, BUFFER_SIZE, 0);
-      answering_client(client_socket_fd, buffer, limit_flag);
+      answering_client(client_socket_fd, buffer, FALSE);
       close(client_socket_fd);
 
       printf("\nClient %d attended succesfully\n", client_socket_fd);
@@ -216,7 +215,7 @@ _Bool arguments_OK(int argc, char* argv[]){
 void initiate_threads(){
   for (int i = 0; i < PROGRAM.NUM_CLIENT_THREADS; i++) {
     int initial_limit_flag = 0;
-    if(pthread_create(&(thread_pool[i]), NULL, handle_client, (void*)&initial_limit_flag)){
+    if(pthread_create(&(thread_pool[i]), NULL, handle_client, NULL)){
       printf("\nError in creation of the thread #%d\n", i);
       print_error_status();
     }
