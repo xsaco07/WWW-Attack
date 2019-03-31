@@ -122,8 +122,11 @@ void parse_http_response(char *string, http_response *response){
 void build_filename(char *folder, char *uri, char *dest){
     // Add the final "/" to the folder name
     int offset = sprintf(dest,"%s/",folder);
-    // +1 to skip the starting "/" of the uri
-    offset += sprintf(dest+offset,"%s",uri+1);
+    // To check if uri start with "/"
+    int uri_offset = 0;
+    if(uri[0]=='/')
+        uri_offset = 1;
+    offset += sprintf(dest+offset,"%s",uri+uri_offset);
 
 }
 
@@ -234,4 +237,50 @@ void write_file_to_socket(FILE *file, int socket_fd, int filesize){
         filesize -= bytes_read;
     }
     fclose(file);
+
+}
+
+
+int validate_cgi_request(char *uri, char  *filename, char *path){
+    int return_value = 0;
+    // Check if it's a CGI request 
+    char bin_name[20];
+    bin_name[0]=0;
+    sscanf(uri, "/cgi/%s",bin_name);
+    if(strlen(bin_name)){ // Requesting executable bin output
+        // This string will contain the command to execute the bin and redirect its output
+        // to a temp file 
+        char command[20];
+
+        // Where to store temp files
+        char * temp_folder = "temp";
+
+        // Build the temp filename, it's unique for each process pid
+        char temp_filename[25];
+        sprintf(temp_filename,"temp%d",getpid());
+        printf("outter1 %s\n",temp_filename);
+        
+        // Write the command to execute the bin and redirect the output to temp file 
+        sprintf(command,"./%s/cgi/%s > %s/%s",path,bin_name,temp_folder,temp_filename);
+        
+        // Execute the command
+        printf("executing:%s\n",command);
+        system(command);
+        
+        // repeat because lost
+        sprintf(temp_filename,"temp%d",getpid());    
+        build_filename("temp",temp_filename,filename);
+        return_value = getpid();
+    }else{
+        build_filename(path, uri, filename);
+    }
+    return return_value;
+}
+
+void delete_temp_file(int pid_file){
+     // Delete the temp file
+    char command[50];
+    sprintf(command,"rm temp/temp%d",pid_file);
+    system(command);
+    printf("temp file deleted\n");
 }
