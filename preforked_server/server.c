@@ -1,3 +1,4 @@
+
 #include "../lib/utils.h"
 
 #define MAX_QUEUE_LENGTH 1
@@ -41,14 +42,8 @@ void handle_client(int client_socket, char *path){
         send_response_header(client_socket, response);
 
         // Write the file to the socket by parts using a buffer
-        char buff[1024];
-        int bytes_read;
-        while(file_size){
-            bytes_read = fread(buff, 1, sizeof(buff), file);
-            send(client_socket, buff, sizeof(buff),0);
-            file_size -= bytes_read;
-        }
-        fclose(file);
+        write_file_to_socket(file, client_socket, file_size);
+       
     }
     else{
         printf("File not found\n");
@@ -219,6 +214,7 @@ void child_role(int parent_socket_fd){
             printf("Child with pid %d done handle_client\n", pid);
             close(client_socket_fd);
         }
+        sleep(60);//TEMP
     }
 }
 

@@ -174,4 +174,11 @@ char *get_shared_memory_segment(int size, key_t key);
  */
 void fill_array(int *array, int n, int value);
 
+
+
+/*
+    Writes the given file to the socket 
+*/
+void write_file_to_socket(FILE *file, int socket_fd, int filesize);
+
 #endif

@@ -224,3 +224,14 @@ void fill_array(int *array, int n, int value){
         *(array+i) = value;
     }
 }
+
+void write_file_to_socket(FILE *file, int socket_fd, int filesize){
+    char buff[1024];
+    int bytes_read;
+    while(filesize){
+        bytes_read = fread(buff, 1, sizeof(buff), file);
+        send(socket_fd, buff, sizeof(buff),0);
+        filesize -= bytes_read;
+    }
+    fclose(file);
+}
