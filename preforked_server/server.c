@@ -284,7 +284,21 @@ int get_worker(char *workers_states[], int max_workers){
  */
 int respond_server_full(int client_socket_fd){
     // build an mock html and send repsonde
-    return 0;
+    // This means the server is full and must send an "SERVER FULL MSG"
+	http_response response;
+    response.status_code = 200;
+    char *full_msg = "<html> \n\
+    				    <head> \n\
+    				    </head> \n\
+    				    <body> \n\
+        				    <h1> \n\
+        				    	SERVER IS AT FULL CAPACITY, PLEASE COME BACK LATER \n\
+        				    </h1> \n\
+    				    </body> \n\
+    				  </html>";
+    response.content_length = strlen(full_msg);
+    send_response_header(client_socket_fd, response);
+    send(client_socket_fd, full_msg, strlen(full_msg),0);
 }
 
 
