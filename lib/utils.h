@@ -24,7 +24,7 @@
 #define TRUE 1
 
 // Maps the HTTP status code to the name in string
-// char *phrases[6a00];
+char *phrases[600];
 
 // Auxiliar structure for receiving an HTTP request
 typedef struct http_request{
@@ -38,7 +38,8 @@ typedef struct http_request{
 typedef struct http_response{
     int status_code;
     int method;
-    long int content_length;
+    char *body;
+    int content_length;
     int content_type;
 } http_response;
 
@@ -130,14 +131,6 @@ void print_error_status();
 void build_filename(char *folder, char *uri, char *dest);
 
 
-
-/*
-    It serializes the struct and sends it through the socket
-*/
-void send_response_header(int socket_fd, http_response response);
-
-
-
 /*
     It reads all bytes from file and writes them to buffer
 */
@@ -184,21 +177,15 @@ void fill_array(int *array, int n, int value);
 void write_file_to_socket(FILE *file, int socket_fd, int filesize);
 
 
-
-/*
-    If uri has the format of a cgi request the executes the binary and redirects its output
-    to a temp file in tem/ folder, then modifies filename to match the temp filename so the
-    request "looks" like it's requesting the filename as a normal resource request
-    Returns the pid if it's cgi request, else returns 0
-*/
-int validate_cgi_request(char *uri, char  *filename, char *path);
-
-
-
 /*
     Deletes the file at temp/temp+pid_file
 */
 void delete_temp_file(int pid_file);
 
+
+/*
+    It serializes the struct and sends it through the socket
+*/
+void send_response(int socket_fd, http_response response);
 
 #endif

@@ -132,24 +132,23 @@ void build_filename(char *folder, char *uri, char *dest){
 
 
 
-// Sends all the header of the reponse the caller must send the file
-void send_response_header(int socket_fd, http_response response){
-    char *phrases[600];
-    phrases[404] = "Not Found";
-    phrases[200] = "OK";
-
-    char buffer[1024];
+void send_response(int socket_fd, http_response response){
     // All the response will be written here
-    const char *protocol = "HTTP/1.1";
+    char buffer[10*1024];
+    char *protocol = "HTTP/1.1";
     // This is used to track where to write the next time
     int offset = sprintf(buffer,"%s %d %s\n",protocol,response.status_code,phrases[response.status_code]);
 
     if(response.status_code == 200){
-        offset += sprintf(buffer+offset,"Content-length: %ld\n",response.content_length);
+        offset += sprintf(buffer+offset,"Content-length: %d\n",response.content_length);
         offset += sprintf(buffer+offset,"\n");
+        //Write exactly the size of the body
+        memcpy(buffer+offset, response.body, response.content_length);
+        offset += response.content_length;
     }
 
     int bytes_sent = send(socket_fd, buffer, offset,0);
+    printf("%d bytes sent content: %s\n",bytes_sent,buffer);
 }
 
 
@@ -243,13 +242,13 @@ void write_file_to_socket(FILE *file, int socket_fd, int filesize){
 
 int validate_cgi_request(char *uri, char  *filename, char *path){
     int return_value = 0;
-    // Check if it's a CGI request 
+    // Check if it's a CGI request
     char bin_name[20];
     bin_name[0]=0;
     sscanf(uri, "/cgi/%s",bin_name);
     if(strlen(bin_name)){ // Requesting executable bin output
         // This string will contain the command to execute the bin and redirect its output
-        // to a temp file 
+        // to a temp file
         char command[20];
 
         // Where to store temp files
@@ -259,16 +258,16 @@ int validate_cgi_request(char *uri, char  *filename, char *path){
         char temp_filename[25];
         sprintf(temp_filename,"temp%d",getpid());
         printf("outter1 %s\n",temp_filename);
-        
-        // Write the command to execute the bin and redirect the output to temp file 
+
+        // Write the command to execute the bin and redirect the output to temp file
         sprintf(command,"./%s/cgi/%s > %s/%s",path,bin_name,temp_folder,temp_filename);
-        
+
         // Execute the command
         printf("executing:%s\n",command);
         system(command);
-        
+
         // repeat because lost
-        sprintf(temp_filename,"temp%d",getpid());    
+        sprintf(temp_filename,"temp%d",getpid());
         build_filename("temp",temp_filename,filename);
         return_value = getpid();
     }else{
