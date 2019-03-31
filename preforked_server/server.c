@@ -31,6 +31,30 @@ void handle_client(int client_socket, char *path){
 
     build_filename(path,req.uri, filename);
 
+    // Check if it's a CGI request 
+    char bin_name[20];
+    sscanf(req.uri, "/cgi/%s",bin_name);
+    if(strlen(bin_name)){ // Requesting executable bin output
+        // This string will contain the command to execute the bin and redirect its output
+        // to a temp file 
+        char command[20];
+
+        // Build the temp filename, it's unique for each process pid
+        char temp_filename[20];
+        sprintf(temp_filename,"temp/temp/%d",getpid());
+
+        // Write the command to execute the bin and redirect the output to temp file 
+        sprintf(command,"./%s/cgi/%s > %s",path,bin_name,temp_filename);
+        
+        // Execute the command
+        printf("executing:%s\n",command);
+        system(command);
+        
+        // Override the request filename to the temp file 
+        sprintf(filename,"%s",temp_filename);
+        // Continue normal flow 
+    }
+
     FILE *file = fopen(filename, "r");
 
     http_response response;
