@@ -7,6 +7,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h> //get file size
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 #define ERROR -1
 
@@ -21,32 +24,31 @@
 #define TRUE 1
 
 // Maps the HTTP status code to the name in string
-char *phrases[600];
+// char *phrases[6a00];
 
 // Auxiliar structure for receiving an HTTP request
 typedef struct http_request{
-	int method;
-	char uri[256];
-	char protocol[20];
+    int method;
+    char uri[256];
+    char protocol[20];
 } http_request;
 
 
 // Auxiliar structure for building an HTTP response and sending it later
 typedef struct http_response{
-	int status_code;
-	int method;
-	int content_length;
-	char *body;
-	int content_type;
+    int status_code;
+    int method;
+    long int content_length;
+    int content_type;
 } http_response;
 
 
 
 // Auxiliar structure for accessing the command line parameters of the program
 typedef struct arguments{
-	char path[100];
-	int port;
-	int processes;
+    char path[100];
+    int port;
+    int processes;
 }arguments;
 
 
@@ -122,7 +124,7 @@ void print_error_status();
 	Builds the final path to the requested uri and writes it
 	to dest
 	-folder must be only the name (without "/" at end)
-	-uri must begin with "/". Like "/index.html"
+	-uri can begin with "/" or not
 	-dest is where the final result will be written to
 */
 void build_filename(char *folder, char *uri, char *dest);
@@ -132,7 +134,7 @@ void build_filename(char *folder, char *uri, char *dest);
 /*
     It serializes the struct and sends it through the socket
 */
-void send_response(int socket_fd, http_response response);
+void send_response_header(int socket_fd, http_response response);
 
 
 
@@ -155,6 +157,48 @@ void fill_phrases();
 */
 void parse_arguments(int argc, char *argv[], arguments *arguments);
 
+
+/*
+    Returns the size in bytes of the given file
+*/
+long int get_file_size(const char *file_name);
+
+
+/*
+    Returns the shared memory pointer associated to the key
+ */
+char *get_shared_memory_segment(int size, key_t key);
+
+
+
+/*
+    Fills the array with the given value
+ */
+void fill_array(int *array, int n, int value);
+
+
+
+/*
+    Writes the given file to the socket
+*/
+void write_file_to_socket(FILE *file, int socket_fd, int filesize);
+
+
+
+/*
+    If uri has the format of a cgi request the executes the binary and redirects its output
+    to a temp file in tem/ folder, then modifies filename to match the temp filename so the
+    request "looks" like it's requesting the filename as a normal resource request
+    Returns the pid if it's cgi request, else returns 0
+*/
+int validate_cgi_request(char *uri, char  *filename, char *path);
+
+
+
+/*
+    Deletes the file at temp/temp+pid_file
+*/
+void delete_temp_file(int pid_file);
 
 
 #endif
