@@ -218,7 +218,6 @@ void child_role(int parent_socket_fd){
             printf("Child with pid %d done handle_client\n", pid);
             close(client_socket_fd);
         }
-        sleep(60);//TEMP
     }
 }
 
@@ -337,17 +336,6 @@ void print_char_array(char **array, int size){
 
 
 
-/*
-    Writes port to a port.txt file in current directory
-    THIS IS TEMPORARILY FOR TESTING
- */
-void write_to_file(int port){
-    FILE *f = fopen("port.txt","w");
-    fprintf(f,"%d",port);
-    fclose(f);
-}
-
-
 
 
 /*
@@ -369,9 +357,6 @@ int main(int argc, char *argv[]) {
     bind_socket(socket_fd, args.port);
 
     start_listening(socket_fd, MAX_QUEUE_LENGTH);
-
-    //TEMP
-    write_to_file(args.port);
 
 
     // Because some data structures have the same size as the number of processes to use
