@@ -18,14 +18,14 @@ def arguments_OK(args, argv):
   return (args == MAX_ARGS and argv[1] == "-n" and argv[4] == "-u")
 
 def execute_client():
-  os.system((parse_client(sys.argv[3]) + " -u " + URL_RESOURCE).format(args=sys.argv))
+    os.system((parse_client(sys.argv[3]) + " -u " + URL_RESOURCE).format(args=sys.argv))
 
 def parse_client(name):
   client = ""
   if('.' in name):
     client = "python httpclient.py"
   else:
-    client = "httpclient"
+    client = "./httpclient"
   return client
 
 def start_threading():
